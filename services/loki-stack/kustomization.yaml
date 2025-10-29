@@ -1,0 +1,4 @@
+resources:
+  - secret.yaml
+  - loki-basic-secret.yaml
+  - loki-stack.yaml
