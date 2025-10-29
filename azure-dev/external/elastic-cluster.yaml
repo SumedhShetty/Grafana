@@ -1,0 +1,118 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: es-external-cluster
+  namespace: cluster-core
+spec:
+  interval: 5m
+  path: "../../../../services/elastic-cluster-external/azure-cn"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: observability-cluster
+  timeout: 15m
+  patches:
+    - target:
+        kind: VaultStaticSecret
+        group: secrets.hashicorp.com
+      patch: |
+        - op: add
+          path: /spec/destination/overwrite
+          value: true
+        - op: add
+          path: /spec/destination/transformation
+          value:
+            excludeRaw: true
+    - target:
+        group: elasticsearch.k8s.elastic.co
+        kind: Elasticsearch
+      patch: |
+        - op: add
+          path: /spec/transport
+          value:
+            service:
+              metadata:
+                annotations:
+                  service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+              spec:
+                type: LoadBalancer
+        - op: add
+          path: /spec/nodeSets/0/config/azure.client.default.endpoint_suffix
+          value:
+            core.chinacloudapi.cn
+        - op: add
+          path: /spec/nodeSets/1/config/azure.client.default.endpoint_suffix
+          value:
+            core.chinacloudapi.cn
+        - op: add
+          path: /spec/nodeSets/2/config/azure.client.default.endpoint_suffix
+          value:
+            core.chinacloudapi.cn
+        - op: add
+          path: /spec/nodeSets/3/config/azure.client.default.endpoint_suffix
+          value:
+            core.chinacloudapi.cn
+        - op: add
+          path: /spec/nodeSets/4/config/azure.client.default.endpoint_suffix
+          value:
+            core.chinacloudapi.cn
+    - patch: |
+        - op: add
+          path: /spec/auth/roles/-
+          value:
+            secretName: elastic-roles-network
+      target:
+        group: elasticsearch.k8s.elastic.co
+        kind: Elasticsearch
+    - patch: |
+        - op: replace
+          path: /spec/elasticsearch/securityRoleMappings
+          value:
+            r-network:
+              enabled: true
+              roles: ["r-network"]
+              rules:
+                any:
+                  - field:
+                      groups: "328e7d01-8d12-40da-9a8f-06f4e6817216"
+            dark-lords:
+              enabled: true
+              roles: ["superuser"]
+              rules:
+                all:
+                  - field:
+                      groups: "df0592a2-90da-4ff0-a264-f74cf01605ed"
+      target:
+        group: stackconfigpolicy.k8s.elastic.co
+        kind: StackConfigPolicy
+    - patch: |
+        - op: remove
+          path: /spec/nodeSets/1
+      target:
+        group: elasticsearch.k8s.elastic.co
+        kind: Elasticsearch
+    - target:
+        kind: Elasticsearch
+        group: elasticsearch.k8s.elastic.co
+      patch: |
+        - op: replace
+          path: /spec/secureSettings/0/secretName
+          value: eck-oidc-secret
+        - op: replace
+          path: /spec/secureSettings/1/secretName
+          value: elastic-storage-account-secrets
+    - target:
+        kind: Logstash
+        group: logstash.k8s.elastic.co
+      patch: |
+        - op: replace
+          path: /spec/monitoring/metrics/elasticsearchRefs/0/secretName
+          value: monitoring-de-es-ref
+  postBuild:
+    substituteFrom:
+      - kind: Secret
+        name: es-external-kustomize-variables
+        optional: true
+      - kind: Secret
+        name: platform-secrets
+        optional: false
