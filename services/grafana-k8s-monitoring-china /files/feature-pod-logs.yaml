@@ -1,0 +1,163 @@
+podLogs:
+  enabled: true
+  labelsToKeep:
+    - app.kubernetes.io/name
+    - app.kubernetes.io/instance
+    - app.kubernetes.io/managed-by
+    - service.name
+    - service.namespace
+    - deployment.environment
+    - container
+    - level
+    - AppID
+    - owner
+  
+  structuredMetadata:
+    pod: pod 
+    k8s.pod.name: k8s.pod.name
+    k8s.pod.uid: k8s.pod.uid
+    k8s.pod.ip: k8s.pod.ip
+    k8s.node.name: k8s.node.name
+    k8s.node.uid: k8s.node.uid
+    k8s.namespace.name: k8s.namespace.name
+    k8s.namespace.uid: k8s.namespace.uid
+    k8s.deployment.uid: k8s.deployment.uid
+    k8s.replicaset.uid: k8s.replicaset.uid
+    k8s.daemonset.name: k8s.daemonset.name 
+    k8s.daemonset.uid: k8s.daemonset.uid
+    k8s.statefulset.name: k8s.statefulset.name
+    k8s.statefulset.uid: k8s.statefulset.uid
+    k8s.job.name: k8s.job.name
+    k8s.job.uid: k8s.job.uid
+    k8s.cronjob.name: k8s.cronjob.name
+    k8s.cronjob.uid: k8s.cronjob.uid
+    k8s.workload.kind: k8s.workload.kind
+    k8s.workload.name: k8s.workload.name
+    container.name: container.name
+    container.id: container.id
+    container.image.name: container.image.name
+    container.image.id: container.image.id
+    app.kubernetes.io/version: app.kubernetes.io/version
+    app.kubernetes.io/component: app.kubernetes.io/component
+    app.kubernetes.io/part-of: app.kubernetes.io/part-of
+    platform: platform
+    instance: instance
+    job: job
+    namespace: namespace
+
+  extraDiscoveryRules: |
+    rule {
+      source_labels = ["__meta_kubernetes_pod_label_app"]
+      action        = "replace"
+      target_label  = "service_name"
+      replacement   = "$1"
+    }
+
+    rule {
+      source_labels = ["__meta_kubernetes_namespace"]
+      action        = "replace"
+      target_label  = "service_namespace"
+    }
+
+    rule {
+      action = "replace"
+      source_labels = [
+        "__meta_kubernetes_pod_label_volvocars_com_AppID",
+        "__meta_kubernetes_pod_label_AppID",
+      ]
+      separator = ";"
+      regex = "^(?:;*)?([^;]+).*$"
+      replacement = "$1"
+      target_label = "AppID"
+    }
+
+    rule {
+      action = "replace"
+      source_labels = [
+        "__meta_kubernetes_pod_label_volvocars_com_owner",
+        "__meta_kubernetes_pod_label_owner",
+      ]
+      separator = ";"
+      regex = "^(?:;*)?([^;]+).*$"
+      replacement = "$1"
+      target_label = "owner"
+    }
+
+    rule {
+      source_labels = ["__meta_kubernetes_namespace"]
+      action        = "replace"
+      target_label  = "k8s_namespace_name"
+    }
+
+    rule {
+      source_labels = ["__meta_kubernetes_pod_uid"]
+      action        = "replace"
+      target_label  = "k8s_pod_uid"
+    }
+
+    rule {
+      source_labels = ["__meta_kubernetes_pod_name"]
+      action        = "replace"
+      target_label  = "k8s_pod_name"
+    }
+
+    rule {
+      source_labels = ["__meta_kubernetes_pod_ip"]
+      action        = "replace"
+      target_label  = "k8s_pod_ip"
+    }
+
+    rule {
+      source_labels = ["__meta_kubernetes_pod_node_name"]
+      action        = "replace"
+      target_label  = "k8s_node_name"
+    }
+
+    rule {
+      source_labels = ["__meta_kubernetes_pod_container_name"]
+      action        = "replace"
+      target_label  = "container_name"
+    }
+
+    rule {
+      source_labels = ["__meta_kubernetes_pod_container_image"]
+      action        = "replace"
+      target_label  = "container_image_name"
+    }
+
+    rule {
+      source_labels = ["__meta_kubernetes_pod_controller_kind"]
+      action        = "replace"
+      target_label  = "k8s_workload_kind"
+    }
+
+    rule {
+      source_labels = ["__meta_kubernetes_pod_controller_name"]
+      action        = "replace"
+      target_label  = "k8s_workload_name"
+    }
+
+  extraLogProcessingStages: |
+    stage.match {
+        selector = "{logs_sampling_level=\"low\"}"
+        
+        stage.sampling {
+            rate = 0.25
+        }
+    }
+
+    stage.match {
+        selector = "{logs_sampling_level=\"medium\"}"
+
+        stage.sampling {
+            rate = 0.50
+        }
+    }
+
+    stage.match {
+        selector = "{logs_sampling_level=\"high\"}"
+
+        stage.sampling {
+            rate = 0.75
+        }
+    }
