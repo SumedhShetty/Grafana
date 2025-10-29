@@ -1,0 +1,192 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: observability-grafana
+  namespace: observability
+  labels:
+    AppID: "app-3669"
+    GrafanaName: "observability-grafana"
+spec:
+  client:
+    timeout: 5
+  config:
+    analytics:
+      check_for_updates: "false"
+      reporting_enabled: "false"
+    auth:
+      disable_login_form: "false"
+      disable_signout_menu: "false"
+    log:
+      level: debug
+      mode: console
+    security:
+      disable_gravatar: "false"
+      admin_user: "admin"
+      # admin_password: ${GF_SECURITY_ADMIN_PASSWORD}
+    server:
+      root_url: https://observability.${CLUSTER_DOMAIN}
+    database:
+      type: postgres
+      # host: $${GF_DATABASE_HOST}
+      # name: $${GF_DATABASE_NAME}
+      # user: $${GF_DATABASE_USER}
+      # password: $${GF_DATABASE_PASSWORD}
+      ssl_mode: require
+  deployment:
+    metadata:
+      labels:
+        AppID: "app-3669"
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          AppID: "app-3669"
+      template:
+        metadata:
+          labels:
+            AppID: "app-3669"
+        spec:
+          containers:
+            - env:
+                - name: GF_AUTH_GENERIC_OAUTH_AUTH_URL
+                  value: "https://login.microsoftonline.com/81fa766e-a349-4867-8bf4-ab35e250a08f/oauth2/authorize"
+                - name: GF_AUTH_GENERIC_OAUTH_TOKEN_URL
+                  value: "https://login.microsoftonline.com/81fa766e-a349-4867-8bf4-ab35e250a08f/oauth2/token"
+                - name: GF_AUTH_GENERIC_OAUTH_CLIENT_ID
+                  value: "a90a2230-4303-412c-8752-8243a557503d"
+                - name: GF_AUTH_GENERIC_OAUTH_SCOPES
+                  value: "openid email name"
+                - name: GF_SECURITY_ADMIN_USER # Adding this will break the deployment for some reason. Hopefully we'll be alright without it.
+                  value: "admin"
+                - name: GF_SECURITY_ALLOW_EMBEDDING
+                  value: "true"
+                - name: GF_AUTH_ANONYMOUS_ENABLED
+                  value: "false"
+                - name: GF_AUTH_BASIC_ENABLED
+                  value: "true"
+                - name: GF_AUTH_GENERIC_OAUTH_NAME
+                  value: "Azure AD"
+                - name: GF_AUTH_GENERIC_OAUTH_ENABLED
+                  value: "true"
+                - name: GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP
+                  value: "true"
+                - name: GF_AUTH_OAUTH_ALLOW_INSECURE_EMAIL_LOOKUP
+                  value: "true"
+                - name: GF_AUTH_OAUTH_SKIP_ORG_ROLE_UPDATE_SYNC
+                  value: "true"
+                - name: GF_INSTALL_PLUGINS
+                  value: "simpod-json-datasource,jdbranham-diagram-panel,grafana-polystat-panel,grafana-github-datasource,alexanderzobnin-zabbix-app,jeanbaptistewatenberg-percent-panel,larona-epict-panel,vonage-status-panel,grafana-clock-panel,grafana-kubernetes-app,grafana-guidedtour-panel,frser-sqlite-datasource,grafana-sentry-datasource,redis-datasource,grafana-opensearch-datasource,yesoreyeram-infinity-datasource"
+                - name: GF_PANELS_DISABLE_SANITIZE_HTML
+                  value: "true"
+                - name: GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS
+                  value: "grafana-clock-panel,grafana-influxdb-flux-datasource,larona-epict-panel,prometheus-kubernetes-podnav-panel,grafana-kubernetes-app,grafana-kubernetes-datasource,jeanbaptistewatenberg-percent-panel,vonage-status-panel,prometheus-kubernetes-nodeinfo-panel,alexanderzobnin-zabbix-datasource,alexanderzobnin-zabbix-app,alexanderzobnin-zabbix-triggers-panel,apica-status-panel,apica-panels-app,apica-worldmap-panel,apica-asm-datasource,apica-graph-panel"
+                - name: GF_USERS_VIEWERS_CAN_EDIT
+                  value: "true"
+                - name: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      key: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+                      name: gf-observability-secret
+                # This value (GF_SECURITY_ADMIN_PASSWORD) is apparently also stored in the connected database! Meaning we cannot just change this
+                - name: GF_SECURITY_ADMIN_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: GF_SECURITY_ADMIN_PASSWORD
+                      name: gf-observability-secret
+                - name: GF_SECURITY_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      key: GF_SECURITY_SECRET_KEY
+                      name: gf-observability-secret
+                - name: GF_DATABASE_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: POSTGRESQL_PASSWORD
+                      name: postgresql-secret
+                - name: GF_DATABASE_NAME
+                  valueFrom:
+                    secretKeyRef:
+                      key: POSTGRESQL_DATABASE
+                      name: postgresql-secret
+                - name: GF_DATABASE_HOST
+                  valueFrom:
+                    secretKeyRef:
+                      key: POSTGRESQL_SERVER
+                      name: postgresql-secret
+                - name: GF_DATABASE_USER
+                  valueFrom:
+                    secretKeyRef:
+                      key: POSTGRESQL_USER
+                      name: postgresql-secret
+              image: docker.io/grafana/grafana:11.2.3
+              imagePullPolicy: IfNotPresent
+              livenessProbe:
+                failureThreshold: 6
+                httpGet:
+                  path: /api/health
+                  port: 3000
+                  scheme: HTTP
+                initialDelaySeconds: 120
+                periodSeconds: 10
+                successThreshold: 1
+                timeoutSeconds: 5
+              name: grafana
+              readinessProbe:
+                failureThreshold: 6
+                httpGet:
+                  path: /api/health
+                  port: 3000
+                  scheme: HTTP
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                successThreshold: 1
+                timeoutSeconds: 5
+              securityContext:
+                allowPrivilegeEscalation: false
+                privileged: false
+                readOnlyRootFilesystem: false
+                runAsGroup: 0
+                runAsNonRoot: true
+                runAsUser: 1001
+          securityContext:
+            fsGroup: 1001
+            runAsGroup: 0
+            runAsNonRoot: true
+            runAsUser: 1001
+            supplementalGroups: []
+  ingress:
+    metadata:
+      annotations:
+        kubernetes.io/tls-acme: "true"
+        nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-buffer-size: 24k
+        nginx.ingress.kubernetes.io/proxy-buffers-number: "32"
+        nginx.ingress.kubernetes.io/proxy-connect-timeout: "1800"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
+      labels:
+        AppID: "app-3669"
+    spec:
+      ingressClassName: nginx-private
+      rules:
+        - host: observability.${CLUSTER_DOMAIN}
+          http:
+            paths:
+              - backend:
+                  service:
+                    name: observability-grafana-service # This is the service name, not the deployment name. Operator automatically adds '-service' to the deployment name.
+                    port:
+                      name: grafana
+                path: /
+                pathType: ImplementationSpecific
+      tls:
+        - hosts:
+            - observability.${CLUSTER_DOMAIN}
+          secretName: observability.${CLUSTER_DOMAIN}-tls
+  jsonnet:
+    libraryLabelSelector:
+      matchLabels:
+        AppID: "app-3669"
+  service:
+    spec:
+      type: ClusterIP
