@@ -1,0 +1,106 @@
+cluster:
+  name: ecp-cn3-dev
+  environment: dev
+  location: cn3
+  platform: bakery-ecp-cn3
+selfReporting:
+  enabled: false
+
+destinations:
+  - name: loki-dev
+    type: loki
+    url: http://loki-dev-gateway.observability.svc.cluster.local/loki/api/v1/push
+    tenantId: "fake"
+    # extraLabelsFrom:
+    #   platform: $PLATFORM
+    #   deployment_environment: $DEPLOYMENT_ENVIRONMENT
+
+clusterMetrics:
+  enabled: true
+
+nodeLogs:
+  enabled: true
+
+clusterEvents:
+  enabled: false
+
+prometheusOperatorObjects:
+  enabled: false
+
+integrations: {}
+
+alloy-logs:
+  enabled: true
+  logging:
+    level: warn
+    format: logfmt
+  configReloader:
+    enabled: true
+  controller:
+    extraAnnotations:
+      reloader.stakater.com/auto: "true"
+    podLabels:
+      app: "grafana-k8s-monitoring-alloy-logs-daemonset"
+    volumes:
+      extra:
+        - name: alloy-log-positions
+          hostPath:
+            path: /var/alloy-log-storage
+            type: DirectoryOrCreate
+        - name: host-fs
+          hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+    tolerations:
+      - operator: Exists
+    priorityClassName: high
+
+  alloy:
+    storagePath: /var/lib/alloy
+    mounts:
+      extra:
+        - name: alloy-log-positions
+          mountPath: /var/lib/alloy
+        - name: host-fs
+          mountPath: /hostfs/var/lib/kubelet/pods
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "500m"
+      limits:
+        memory: "512Mi"
+        cpu: "1000m"
+    extraEnv:
+      - name: DEPLOYMENT_ENVIRONMENT
+        value: dev
+      - name: PLATFORM
+        value: bakery-ecp-cn3
+
+alloy-profiles:
+  enabled: false
+
+annotationAutodiscovery:
+  enabled: false
+
+alloy-operator:
+  extraAnnotations:
+    reloader.stakater.com/auto: "true"
+  podAnnotations:
+    observability.volvocars.com: "true"
+  podLabels:
+    app: "grafana-k8s-monitoring-alloy-operator-deployment"
+  resources:
+    requests:
+      cpu: 10m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  tolerations:
+    - operator: Exists
+  replicaCount: 3
+  extraEnv:
+    - name: DEPLOYMENT_ENVIRONMENT
+      value: dev
+    - name: PLATFORM
+      value: bakery-ecp-cn3
